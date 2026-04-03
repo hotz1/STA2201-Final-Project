@@ -3,15 +3,15 @@
 
 # # Introduction
 # 
-# This Jupyter notebook file contains the code for implementing a Gaussian Process Latent Variable Model (GP-LVM) using Python, and comparisons of this methodology to the standard Principal Component Analysis (PCA) method which mat be used for dimension reduction.
+# This Jupyter notebook file contains the code for implementing Probabilistic Principal Component Analysis (PPCA) and Gaussian Process Latent Variable Model (GP-LVM) algorithms using Python, with a focus on the use of these methods for dimension reduction on an image dataset. There are two primary metrics which we are interested in for these methods; the RMSE from the reconstructions of the full-dimensional observations and the agreement between the clusters formed using these transformations with the true labels. 
 # 
-# The primary dataset used for this project is the [`Fashion-MNIST` dataset](https://github.com/zalandoresearch/fashion-mnist), which is a publicly-available dataset that is often used for machine learning benchmarking. This dataset contains clothing items from 10 distinct groups, with an equal balance of observations from each group in the training dataset. 
+# The dataset used for this project is the [`Fashion-MNIST` dataset](https://github.com/zalandoresearch/fashion-mnist), which is a publicly-available dataset that is often used for machine learning benchmarking. This dataset contains clothing items from 10 distinct groups, with an equal balance of observations from each group in the training dataset. 
 
 # # Preliminary Analysis
 # 
 # In order to perform the analysis, we must load the data into Python and ensure that everything is in working order.
 
-# In[ ]:
+# In[1]:
 
 
 # Import necessary libraries
@@ -23,7 +23,16 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score
 import pandas as pd
+
+# Make sure computer does not explode
+import os
+# os.environ["OMP_NUM_THREADS"] = "4"
+# os.environ["MKL_NUM_THREADS"] = "4"
+# os.environ["OPENBLAS_NUM_THREADS"] = "4"
+torch.set_num_threads(4)
 
 # Set seed for consistency 
 torch.manual_seed(2026)
@@ -93,11 +102,11 @@ plt.show()
 
 # # Principal Component Analysis
 # 
-# In order to choose the dimension $Q$ of the lower-feature representation for the original observations, we will perform PCA on the original observation matrix $\mathbf{Y}_{\textrm{train}} \in \mathbb{R}^{60000 \times 784}$ to get a better understanding of how many dimensions are needed to well-approximate these observations.
+# In order to choose the dimension $Q$ of the lower-feature representation for the original observations, we will perform PCA on the original observation matrix $\mathbf{Y}^{\textrm{train}} \in \mathbb{R}^{60000 \times 784}$ to get a better understanding of how many dimensions are needed to well-approximate these observations.
 # 
-# In order to determine the variance explained by the top $n$ principal components of the data matrix $\mathbf{Y}_{\textrm{train}}$, we will compute the eigenvalues of the covariance matrix for this data matrix.
+# In order to determine the variance explained by the top $n$ principal components of the data matrix $\mathbf{Y}^{\textrm{train}}$, we will compute the eigenvalues of the covariance matrix for this data matrix.
 # 
-# We will perform PCA to get the top principal components of $\mathbf{Y}_{\textrm{train}}$. Using these principal components, we will create a Scree plot to determine a reasonable choice of $Q$ for our dimension reduction.
+# We will perform PCA to get the top principal components of $\mathbf{Y}^{\textrm{train}}$. Using these principal components, we will create a Scree plot to determine a reasonable choice of $Q$ for our dimension reduction.
 
 # In[4]:
 
@@ -156,7 +165,7 @@ print(f"The first {Q_cum_90} components explain 90% of the variance in the data.
 # 
 # After creating this smaller sample of the dataset, we effectively have a 50/50 train-test split, as the training and test datasets will be equally-sized.
 
-# In[ ]:
+# In[7]:
 
 
 subset_ids = []
@@ -177,10 +186,7 @@ fashion_subset_labels = fashion_train.targets.numpy()[subset_ids]
 # In[8]:
 
 
-# Fit PCA with 2 and 3 components
-PCA_2d = PCA(n_components = 2)
-fashion_2d = PCA_2d.fit_transform(fashion_subset)
-
+# Fit PCA with 3 components
 PCA_3d = PCA(n_components = 3)
 fashion_3d = PCA_3d.fit_transform(fashion_subset)
 
@@ -188,6 +194,7 @@ fashion_3d = PCA_3d.fit_transform(fashion_subset)
 # In[9]:
 
 
+get_ipython().run_line_magic('matplotlib', 'inline')
 colors = plt.cm.tab10(np.arange(10))
 
 # Create PCA plot for 2 dimensions
@@ -196,12 +203,13 @@ plt.figure(figsize = (10, 8))
 for c in range(10):
     class_index = (fashion_subset_labels == c)
     plt.scatter(
-        fashion_2d[class_index, 0], 
-        fashion_2d[class_index, 1],
+        fashion_3d[class_index, 0], 
+        fashion_3d[class_index, 1],
         marker = f"${c}$",
         color = colors[c],
         label = fashion_label_map[c],
-        alpha = 0.5
+        alpha = 0.5,
+        s = 5
     )
 
 plt.title("Principal Components of MNIST-Fashion Dataset", size = 18)
@@ -211,7 +219,9 @@ plt.legend(
     title = "Clothing Type", 
     title_fontsize = "large",
     bbox_to_anchor = (1.0, 0.5), 
-    loc = "center left")
+    loc = "center left",
+    markerscale = 3
+)
 plt.savefig("outputs/fashion-pca-2d.pdf", dpi = 150, bbox_inches = "tight")
 plt.show()
 
@@ -220,7 +230,7 @@ plt.show()
 
 
 # Create interactive PCA plot for 3 dimensions
-# get_ipython().run_line_magic('matplotlib', 'widget')
+get_ipython().run_line_magic('matplotlib', 'inline')
 fig = plt.figure(figsize = (10, 8))
 ax = fig.add_subplot(111, projection = "3d")
 
@@ -243,8 +253,10 @@ plt.legend(
     title = "Clothing Type", 
     title_fontsize = "large", 
     bbox_to_anchor = (1.25, 0.5),
-    loc = "center")
-ax.view_init(elev = -150, azim = 25)
+    loc = "center",
+    markerscale = 3
+)
+ax.view_init(elev = 45, azim = 15)
 fig.suptitle(
     "Principal Components of MNIST-Fashion Dataset",
     size = 18,
@@ -254,13 +266,163 @@ plt.savefig("outputs/fashion-pca-3d.pdf", dpi = 150, bbox_inches = "tight")
 plt.show()
 
 
-# # GP-LVM Modeling
+# ## Clustering Agreement
 # 
-# The goal of this project is to reduce the dimensionality of the `Fashion-MNIST` dataset using dimension reduction methods such as a **Gaussian Process Latent Variable Model** (GP-LVM). 
+# Though we cannot directly use PCA to reconstruct the original dataset, we can still use $K$-means clustering to form clusters based on the $Q$-dimensional projections of the images. Furthermore, we can assess how well these clusters agree with the true labels using the Adjusted Rand Index, which is a metric that is agnostic towards the true labelling. 
+
+# In[11]:
+
+
+# Fit PCA
+PCA_Q = PCA(n_components = 10)
+X_PCA = PCA_Q.fit_transform(fashion_subset)
+
+# Fit K-means
+kmm = KMeans(n_clusters = 10, init = "k-means++", n_init = 10)
+PCA_clust = kmm.fit_predict(X_PCA)
+
+# Compute adjusted Rand score index
+PCA_ARI = adjusted_rand_score(fashion_subset_labels, PCA_clust)
+print(f"PCA Adjusted Rand Index: {PCA_ARI:.2%}")
+
+
+# # Probabilistic Principal Component Analysis
 # 
-# For the GP-LVM, we aim to find  lower-dimensional structure which is capable of suitably representing the higher-dimensional features. In particular, we want to represent the observed feature matrix $\mathbf{Y} \in \mathbb{R}^{N \times D}$ as a reduced-feature matrix $\mathbf{X} \in \mathbb{R}^{N \times Q}$. To achieve dimension reduction, we take $Q < D$, and hopefully, we can take $Q \ll D$. 
+# One method which we may use for reducing the dimensionality of the images in the dataset is the **Probabilistic Principal Component Analysis** (PPCA) algorithm. To avoid an overly cumbersome computational load (particularly for the GP-LVM method later), we will use a fixed dimensionality of $Q = 10$ latent variables.
+
+# In[12]:
+
+
+# Fit the PPCA
+Q = 10
+
+# Compute eigendecomposition of covariance matrix
+N, D = fashion_subset.shape
+fashion_subset_scaled = torch.tensor(scaler.fit_transform(fashion_subset), dtype = torch.float64)
+fashion_subset_cov = fashion_subset_scaled.T @ fashion_subset_scaled / N
+eigenvalues, eigenvectors = np.linalg.eigh(fashion_subset_cov)
+eigenvalues, eigenvectors = eigenvalues[::-1], eigenvectors[:, ::-1]
+
+# Compute PPCA maximum likelihood estimators
+sigma2_MLE = eigenvalues[Q:].mean()
+W_MLE = eigenvectors[:, :Q] * np.sqrt(eigenvalues[:Q] - sigma2_MLE)
+W_MLE = torch.tensor(W_MLE, dtype = torch.float64)
+
+M_MLE = W_MLE.T @ W_MLE + sigma2_MLE * torch.eye(Q)
+M_chol = torch.linalg.cholesky(M_MLE)
+
+# PPCA projections for X
+X_PPCA = fashion_subset @ W_MLE @ torch.cholesky_inverse(M_chol)
+
+# Recover Y using PPCA 
+Y_PPCA = X_PPCA @ W_MLE.T + fashion_subset.mean(dim = 0)
+
+# Compute MSE
+MSE_PPCA = ((Y_PPCA - fashion_subset) ** 2).mean()
+RMSE_PPCA = np.sqrt(MSE_PPCA)
+print(f"PPCA Reconstruction RMSE: {RMSE_PPCA:.4f}")
+
+
+# ## PPCA Latent Variable Plots
 # 
-# For the `Fashion-MNIST` dataset, each clothing item is represented as a 784-dimensional vector $\mathbf{y}_{i} \in \mathbb{R}^{784}$. For the GP-LVM method, we want to represent these clothing items as some lower-dimensional observation $\mathbf{x}_{i} \in \mathbb{R}^{Q}$, where the value of $Q$ is selected prior to fitting the model. To choose $Q$, we will use **Principal Component Analysis** (PCA) to determine a suitable number of dimensions.
+# Here, we make plots using the top 2 and top 3 components for the probabilistic PCA method, based on the code outputs above. These represent the most important latent variables for describing the `Fashion-MNIST` dataset well.
+
+# In[13]:
+
+
+# Create PCA plot for 2 dimensions
+get_ipython().run_line_magic('matplotlib', 'inline')
+plt.figure(figsize = (10, 8))
+
+for c in range(10):
+    class_index = (fashion_subset_labels == c)
+    plt.scatter(
+        X_PPCA[class_index, 0],
+        X_PPCA[class_index, 1],
+        marker = f"${c}$",
+        color = colors[c],
+        label = fashion_label_map[c],
+        alpha = 0.5,
+        s = 5
+    )
+
+plt.title("Important Features of Fitted Latent Data from PPCA", size = 18)
+plt.xlabel("LF1")
+plt.ylabel("LF2")
+plt.legend(
+    title = "Clothing Type", 
+    title_fontsize = "large",
+    bbox_to_anchor = (1.0, 0.5), 
+    loc = "center left",
+    markerscale = 3
+)
+plt.savefig("outputs/fashion-ppca-2d.pdf", dpi = 150, bbox_inches = "tight")
+plt.show()
+
+
+# In[14]:
+
+
+# Create interactive PCA plot for 3 dimensions
+get_ipython().run_line_magic('matplotlib', 'inline')
+fig = plt.figure(figsize = (10, 8))
+ax = fig.add_subplot(111, projection = "3d")
+
+for c in range(10):
+    class_index = (fashion_subset_labels == c)
+    ax.scatter(
+        X_PPCA[class_index, 0],
+        X_PPCA[class_index, 1],
+        X_PPCA[class_index, 2],
+        marker = f"${c}$",
+        label = fashion_label_map[c],
+        alpha = 0.5,
+        s = 5
+    )
+
+ax.set_xlabel("LF1")
+ax.set_ylabel("LF2")
+ax.set_zlabel("LF3")
+plt.legend(
+    title = "Clothing Type", 
+    title_fontsize = "large", 
+    bbox_to_anchor = (1.25, 0.5),
+    loc = "center",
+    markerscale = 3
+)
+ax.view_init(elev = -160, azim = 30)
+fig.suptitle(
+    "Important Features of Fitted Latent Data from PPCA",
+    size = 18,
+    x = 0.6, 
+    y = 0.9)
+plt.savefig("outputs/fashion-ppca-3d.pdf", dpi = 150, bbox_inches = "tight")
+plt.show()
+
+
+# ## Clustering Agreement
+# 
+# As we did for the 'ordinary' PCA, we can use the adjusted Rand index to assess how well this lower-dimensional mapping can be clustered in a way that matches the true labels for the images.
+
+# In[15]:
+
+
+# Fit K-means
+kmm = KMeans(n_clusters = 10, init = "k-means++", n_init = 10)
+PPCA_clust = kmm.fit_predict(X_PPCA)
+
+# Compute adjusted Rand score index
+PPCA_ARI = adjusted_rand_score(fashion_subset_labels, PPCA_clust)
+print(f"PPCA Adjusted Rand Index: {PPCA_ARI:.2%}")
+
+
+# # GP-LVM
+# 
+# <!-- The goal of this project is to reduce the dimensionality of the `Fashion-MNIST` dataset using dimension reduction methods such as a **Gaussian Process Latent Variable Model** (GP-LVM).  -->
+# 
+# For the GP-LVM, we aim to find a lower-dimensional structure which is capable of suitably representing the higher-dimensional features. In particular, we want to represent the observed feature matrix $\mathbf{Y} \in \mathbb{R}^{N \times D}$ as a reduced-feature matrix $\mathbf{X} \in \mathbb{R}^{N \times Q}$. To achieve dimension reduction, we take $Q < D$, and hopefully, we can take $Q \ll D$. 
+# 
+# For the `Fashion-MNIST` dataset, each clothing item is represented as a 784-dimensional vector $\mathbf{y}_{i} \in \mathbb{R}^{784}$. For the GP-LVM method, we want to represent these clothing items as some lower-dimensional observation $\mathbf{x}_{i} \in \mathbb{R}^{Q}$, where the value of $Q$ is selected prior to fitting the model. As the Scree plots created earlier do not show any obvious 'elbows', we will fix $Q = 10$ as the dimension of the latent variable space in order to reduce the computational overhead.
 
 # ## Fitting the Gaussian Process
 # 
@@ -276,27 +438,27 @@ plt.show()
 # ### GP-LVM Helper Functions
 # 
 # Here, we define two helper functions which we will use in fitting the GP-LVM model:
-# - The first function is a helper function to compute the RBF kernel using automatic relevance detection, which takes in parameters `X`, `log_len_scale` and `log_out_scale`. These respectively represent the dataset $\mathbf{X} \in \mathbb{R}^{N \times Q}$, $\{\log(\ell_{q})\}_{q=1}^{Q}$, and $\log(\kappa^{2})$. The latter two parametrizations are chosen so that the range of each variable is the entire real line, as opposed to being restricted to the positive real numbers.
+# - The first function is a helper function for compute the RBF kernel with different lengthscale parameters. This function takes in parameters `X1`, `X2`, `log_len_scale` and `log_out_scale`. These respectively represent the datasets $\mathbf{X}_{1} \in \mathbb{R}^{N \times Q}$, $\mathbf{X}_{2} \in \mathbb{R}^{M \times Q}$, $\{\log(\ell_{q})\}_{q=1}^{Q}$, and $\log(\kappa^{2})$, and computes the Gram matrix for the kernel betweenthe rows of the matrices $\mathbf{X}_{1}$ and $\mathbf{X}_{2}$. The latter two parametrizations are chosen so that the range of each variable is the entire real line, as opposed to being restricted to the positive real numbers.
 # - The second function computes the negative marginal log-likelihood as a function of the matrices $\mathbf{Y} \in \mathbb{R}^{N \times D}, \mathbf{X} \in \mathbb{R}^{N \times Q}$, and three sets of hyperparameters; `log_len_scales`, `log_variance`, and `log_noise`. The first two are the same as above, while `log_noise` is a term which represents the variance in the Gaussian aspect of the assumed functional relationship between $\mathbf{X}$ and $\mathbf{Y}$. 
 
-# In[18]:
+# In[16]:
 
 
-def rbf_ard_kernel(X, log_len_scale, log_out_scale):
+def rbf_ard_kernel(X1, X2, log_len_scale, log_out_scale):
     """
     A function to compute the RBF kernel between X using automatic relevance detection    
     """
     len_scale = torch.exp(log_len_scale)
     out_scale = torch.exp(log_out_scale)
 
-    diffs = X.unsqueeze(0) - X.unsqueeze(1)
+    diffs = X1.unsqueeze(0) - X2.unsqueeze(1)
     scaled_diffs = diffs / len_scale
     squared_dists = (scaled_diffs ** 2).sum(dim = -1)
     kernel_mat = out_scale * torch.exp(-0.5 * squared_dists)
     return kernel_mat
 
 
-# In[15]:
+# In[17]:
 
 
 def marginal_nll(Y, X, log_len_scale, log_out_scale, log_noise):
@@ -305,7 +467,7 @@ def marginal_nll(Y, X, log_len_scale, log_out_scale, log_noise):
     """
     N, D = Y.shape
     noise = torch.exp(log_noise)
-    KXX = rbf_ard_kernel(X, log_len_scale, log_out_scale) + noise * torch.eye(N)
+    KXX = rbf_ard_kernel(X, X, log_len_scale, log_out_scale) + noise * torch.eye(N)
 
     # Numerical stability
     KXX = KXX + 1e-6 * torch.eye(N)
@@ -323,57 +485,200 @@ def marginal_nll(Y, X, log_len_scale, log_out_scale, log_noise):
 # 
 # Using the `rbf_ard_kernel` and `marginal_nll` functions defined above, we can fit the GP-LVM model to the `Fashion-MNIST` dataset. Here, we will set $Q = 10$, and we will use the Adam (Adaptive Moment Estimation) optimizer to maximize the log-likelihood of the Gaussian Process model. The choice of $Q$ is a bit large compared to the previously-generated plots, but the ARD aspect of the kernel used in fitting this model will help to ensure that we do not have too many parameters in the resulting fitted model.
 # 
-# For our initialization, we initialize the optimization loop with $\log(\ell_{q}) = 0$ for each $q \in \{1, 2, \dots, Q\}$, $\log(\kappa^{2}) = 0$, and $\log(\sigma^{2}) = 0$. Additionally, we initialize the matrix $\mathbf{X} \in \mathbb{R}^{N \times Q}$ using the first $Q$ principal components of $\mathbf{Y}$. 
+# For our initialization, we initialize the optimization loop with $\log(\ell_{q}) = 0$ for each $q \in \{1, 2, \dots, Q\}$, $\log(\kappa^{2}) = 0$, and $\log(\sigma^{2}) = 0$. Additionally, we initialize the latent variable feature matrix $\mathbf{X}^{(0)} \in \mathbb{R}^{N \times Q}$ using the first $Q$ principal components of $\mathbf{Y}$. We run the model for 500 epochs, and get the resulting matrix $\mathbf{X}^{\text{latent}}$ upon completion.
+
+# **WARNING:** The code below takes a **very** long time to run, and uses up a lot of memory.
+# 
+# In order to more easily proceed with this analysis, the code below was executed only once and left to run overnight, with the results saved to disk so that they could be read in from a file instead of needing to be re-computed in subsequent runs of this notebook. The code for fitting the GP-LVM to the data is presented below:
 # 
 # ---
 # 
-# **WARNING:** The code block below takes a very long time to run!
+# ```
+# # Set constants and initial parameters
+# Q = 10
+# log_ls = torch.nn.Parameter(torch.zeros(Q))
+# log_os = torch.nn.Parameter(torch.tensor(0.0))
+# log_noise = torch.nn.Parameter(torch.tensor(0.0))
+# 
+# PCA_Q = PCA(n_components = Q)
+# X = PCA_Q.fit_transform(fashion_subset)
+# X = torch.nn.Parameter(torch.tensor(X, dtype = torch.float64))
+# 
+# # Optimization loop
+# n_epochs = 500
+# optimizer = torch.optim.Adam([X, log_ls, log_os, log_noise], lr = 0.02)
+# losses = []
+# 
+# for epoch in range(n_epochs):
+#     optimizer.zero_grad()
+#     loss = marginal_nll(fashion_subset, X, log_ls, log_os, log_noise)
+#     loss.backward()
+#     optimizer.step()
+#     losses.append(loss.item())  
+# 
+# 
+# # Save information locally to disk (prevents needing to re-run code as often)
+# X_fin = X.detach().numpy()
+# X_df = pd.DataFrame(X_fin, columns = [f"Latent-{q+1}" for q in range(Q)])
+# X_df["TrueClass"] = fashion_subset_labels
+# X_df.to_csv("outputs/optim/GP-LVM-Latent.csv", index = False)
+# 
+# loss_df = pd.DataFrame({"Epoch": range(n_epochs), "Loss": losses})
+# loss_df.to_csv("outputs/optim/GP-LVM-Loss.csv", index = False)
+# 
+# hyper_df = pd.DataFrame(
+#     [torch.exp(log_ls.detach()).numpy()], 
+#     columns = [f"lengthscale-{q+1}" for q in range(Q)]
+# )
+# hyper_df = hyper_df.assign(
+#     outputscale = torch.exp(log_os).item(),
+#     noise = torch.exp(log_noise).item()
+# )
+# hyper_df.to_csv("outputs/optim/GP-LVM-Hyperparameters.csv", index = False)
+# ```
 
-# In[ ]:
+# ### Reading in the Fitted Latent Dataset
+# 
+# As mentioned in the previous cell, the code to fit the GP-LVM for the even a subset of the `Fashion-MNIST` dataset is far too computationally expensive to be re-run in this notebook. Here, we read in the results that were saved to disk in the steps shown in the code above.
+
+# In[18]:
 
 
-# Set constants and initial parameters
-Q = 10
-log_ls = torch.nn.Parameter(torch.zeros(Q))
-log_os = torch.nn.Parameter(torch.tensor(0.0))
-log_noise = torch.nn.Parameter(torch.tensor(0.0))
+# Read in X and convert to tensors
+X = pd.read_csv("outputs/optim/GP-LVM-Latent.csv")
+X_GPLVM, X_class = X.iloc[:, :-1], X.iloc[:, -1]
+X_GPLVM = torch.tensor(X_GPLVM.values, dtype = torch.float64)
+X_class = torch.tensor(X_class.values)
 
-PCA_Q = PCA(n_components = Q)
-X = PCA_Q.fit_transform(fashion_subset)
-X = torch.nn.Parameter(torch.tensor(X, dtype = torch.float64))
-
-# Optimization loop
-n_epochs = 500
-optimizer = torch.optim.Adam([X, log_ls, log_os, log_noise], lr = 0.02)
-losses = []
-
-for epoch in range(n_epochs):
-    optimizer.zero_grad()
-    loss = marginal_nll(fashion_subset, X, log_ls, log_os, log_noise)
-    loss.backward()
-    optimizer.step()
-    losses.append(loss.item())  
+# Read in hyperparameters, convert to tensors
+hyperpars = pd.read_csv("outputs/optim/GP-LVM-Hyperparameters.csv")
+ls_fitted = torch.tensor(hyperpars.iloc[:, 1:11].values.flatten(), dtype = torch.float64)
+os_fitted = torch.tensor(hyperpars.loc[:, "outputscale"].values, dtype = torch.float64)
+noise_fitted = torch.tensor(hyperpars.loc[:, "noise"].values, dtype = torch.float64)
 
 
-# In[62]:
+# ### Latent Variable Plots
+# 
+# Using the fitted matrix $\mathbf{X}^{\textrm{GPLVM}}$ which was the result of fitting the GP-LVM model to the observed data, we can create a plot of the most 'important' dimensions (as determined by ARD) in the resultant feature matrix. 
+# 
+# Note that for the ARD lengthscales, a *smaller* lengthscale (i.e. larger $\ell_{q}^{-2}$) is indicative of higher importance, as the lengthscale parameter $\ell_{q}$ represents (to some degree) the degree of change in the observation space relative to the change in that dimension of the latent space. However, the columns of $\mathbf{X}^{\textrm{GPLVM}}$ are **not** scaled to have the same variance. As such, we will also incorporate the variance of the column of the latent mapping in order to determine the importance of the features of the latent feature matrix fitted with the GP-LVM. In total, the formula we use for the importance of latent variable $q$ is given by $$\text{Imp}_{q} = \frac{\text{Var}(\mathbf{X}^{\text{GPLVM}}_{q})}{\ell_{q}^{2}}$$
+
+# In[19]:
 
 
-# Save information locally to disk (prevents needing to re-run code as often)
-X_fin = X.detach().numpy()
-X_df = pd.DataFrame(X_fin, columns = [f"Latent-{q+1}" for q in range(Q)])
-X_df["TrueClass"] = fashion_subset_labels
-X_df.to_csv("outputs/optim/GP-LVM-Latent.csv", index = False)
+# Rank the latent variable dimensions by importance 
+inv_ls = ls_fitted ** (-2)
+latent_var = X_GPLVM.var(axis = 0)
+latent_imp = latent_var * inv_ls
+imp_sort = np.argsort(latent_imp).flip(0)
 
-loss_df = pd.DataFrame({"Epoch": range(n_epochs), "Loss": losses})
-loss_df.to_csv("outputs/optim/GP-LVM-Loss.csv", index = False)
 
-hyper_df = pd.DataFrame(
-    [torch.exp(log_ls.detach()).numpy()], 
-    columns = [f"lengthscale-{q+1}" for q in range(Q)]
+# In[20]:
+
+
+# Create PCA plot for 2 dimensions
+get_ipython().run_line_magic('matplotlib', 'inline')
+plt.figure(figsize = (10, 8))
+
+for c in range(10):
+    class_index = (fashion_subset_labels == c)
+    plt.scatter(
+        X_GPLVM[class_index, imp_sort[0]],
+        X_GPLVM[class_index, imp_sort[1]],
+        marker = f"${c}$",
+        color = colors[c],
+        label = fashion_label_map[c],
+        alpha = 0.5,
+        s = 5
+    )
+
+plt.title("Important Features of Fitted Latent Data from GP-LVM", size = 18)
+plt.xlabel("LF1")
+plt.ylabel("LF2")
+plt.legend(
+    title = "Clothing Type", 
+    title_fontsize = "large",
+    bbox_to_anchor = (1.0, 0.5), 
+    loc = "center left",
+    markerscale = 3
 )
-hyper_df = hyper_df.assign(
-    outputscale = torch.exp(log_os).item(),
-    noise = torch.exp(log_noise).item()
+plt.savefig("outputs/fashion-gp-lvm-2d.pdf", dpi = 150, bbox_inches = "tight")
+plt.show()
+
+
+# In[21]:
+
+
+# Create interactive PCA plot for 3 dimensions
+get_ipython().run_line_magic('matplotlib', 'inline')
+fig = plt.figure(figsize = (10, 8))
+ax = fig.add_subplot(111, projection = "3d")
+
+for c in range(10):
+    class_index = (fashion_subset_labels == c)
+    ax.scatter(
+        X_GPLVM[class_index, imp_sort[0]],
+        X_GPLVM[class_index, imp_sort[1]],
+        X_GPLVM[class_index, imp_sort[2]],
+        marker = f"${c}$",
+        label = fashion_label_map[c],
+        alpha = 0.5,
+        s = 5
+    )
+
+ax.set_xlabel("LF1")
+ax.set_ylabel("LF2")
+ax.set_zlabel("LF3")
+plt.legend(
+    title = "Clothing Type", 
+    title_fontsize = "large", 
+    bbox_to_anchor = (1.25, 0.5),
+    loc = "center",
+    markerscale = 3
 )
-hyper_df.to_csv("outputs/optim/GP-LVM-Hyperparameters.csv")
+ax.view_init(elev = -150, azim = 30)
+fig.suptitle(
+    "Important Features of Fitted Latent Data from GP-LVM",
+    size = 18,
+    x = 0.6, 
+    y = 0.9)
+plt.savefig("outputs/fashion-gp-lvm-3d.pdf", dpi = 150, bbox_inches = "tight")
+plt.show()
+
+
+# ## Reconstruction Error
+# 
+# In order to get a better understanding of the efficacy of the GP-LVM method, we will compute the reconstruction error for retrieving the original observations $\mathbf{Y} \in \mathbb{R}^{N \times D}$ from the fitted latent variable matrix $\mathbf{X}^{\text{latent}} \in \mathbb{R}^{N \times Q}$.
+
+# In[22]:
+
+
+# Compute reconstruction of Y from X_GPLVM
+N = fashion_subset.shape[0]
+KXX = rbf_ard_kernel(X_GPLVM, X_GPLVM, torch.log(ls_fitted), torch.log(os_fitted))
+KXX = KXX + noise_fitted * torch.eye(N) + 1e-6 * torch.eye(N)
+K_chol = torch.linalg.cholesky(KXX)
+K_inv_Y = torch.cholesky_solve(fashion_subset, K_chol)
+Y_recon = KXX @ K_inv_Y
+
+# Compute MSE 
+MSE_GPLVM = ((fashion_subset - Y_recon) ** 2).mean()
+RMSE_GPLVM = np.sqrt(MSE_GPLVM)
+print(f"GP-LVM Reconstruction RMSE: {RMSE_GPLVM:.4f}")
+
+
+# ## Clustering Agreement
+# 
+# Lastly, we will compute the clustering agreement between the GP-LVM latent variables and the true labels.
+
+# In[23]:
+
+
+# Fit K-means
+kmm = KMeans(n_clusters = 10, init = "k-means++", n_init = 10)
+GPLVM_clust = kmm.fit_predict(X_GPLVM)
+
+# Compute adjusted Rand score index
+GPLVM_ARI = adjusted_rand_score(fashion_subset_labels, GPLVM_clust)
+print(f"GP-LVM Adjusted Rand Index: {GPLVM_ARI:.2%}")
 
