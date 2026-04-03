@@ -1,0 +1,157 @@
+\documentclass[12pt]{article}
+\input{../tex-macros/report-typeset.tex}
+\input{../tex-macros/math-macros.tex}
+\input{../tex-macros/math-alphabets.tex}
+
+\usepackage{caption,subcaption}
+\usepackage{pifont}
+\usepackage[numbers, square]{natbib}
+\bibliographystyle{plainnat}
+
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{url}
+\usepackage[dvipsnames]{xcolor}
+
+\hypersetup{
+    colorlinks = true,
+    citecolor = ProcessBlue
+    % linkcolor = RedOrange,
+    % citecolor = BlueViolet,
+    % urlcolor = ProcessBlue
+}
+
+
+% numbering for things by section
+\renewcommand{\theequation}{\arabic{section}.\arabic{equation}}
+\renewcommand{\thefigure}{\arabic{section}.\arabic{figure}}
+\renewcommand{\thetable}{\arabic{section}.\arabic{table}}
+\numberwithin{equation}{section}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
+
+\newcommand{\FMNIST}{\texttt{Fashion-MNIST}\;}
+\newcommand{\GP}{\mathcal{GP}}
+
+
+\begin{document}
+
+\begin{center}
+    {\LARGE{\textbf{Gaussian Process Latent Variable Models for Simplifying Image Data}}}
+    \vspace*{2cm}
+
+    {\Large{Joey Hotz}}\\
+    \vspace*{1cm}
+    {\large{University of Toronto, Department of Statistical Sciences}}\\
+    \vspace*{1cm}
+    {\large{April 03, 2026}}
+
+    \vfill
+
+    \textbf{Team Information:} All aspects of this project (coding, writing the report, creating slides, project motivation, etc.) were done by Joey Hotz.\\
+    \vspace*{0.5cm}
+    All code is available on GitHub: \url{https://github.com/hotz1/STA2201-Final-Project}
+\end{center}
+\thispagestyle{empty}
+\clearpage
+
+\pagenumbering{arabic}
+\setcounter{page}{1}
+
+\section{Introduction}\label{sec:intro}
+
+The overarching goal of this project is to investigate the properties of Gaussian Process Latent Variable Models (GP-LVMs), with a focus on the application of these models to dimension reduction in a high-dimensional data setting.
+
+My personal motivation for choosing this topic for my report is that the GP-LVM method is an 
+
+% My motivation for choosing this topic is 
+
+\section{Methodology}\label{sec:methods}
+
+In order to develop a full mathematical understanding of the GP-LVM methodology and how this method can be used for dimensionality reduction, we must first discuss two pre-requisite ideas which are crucial in motivating the GP-LVM. 
+
+% In order to mathematically describe the GP-LVM methodology and how it relates to dimensionality reduction, we must first discuss the mathematics behind Gaussian Processes, as these are the key statistical objects used in creating these models.
+
+\subsection{Probabilistic PCA}
+
+\subsection{Gaussian Processes}
+
+A Gaussian Process $\{X_{t}\}_{t \in T}$ is a stochastic process of random variables $\{X_{t}\}$ for $t$ in some pre-determined indexing set $T$ which has the property that the joint distribution of any any \emph{finite} collection of random variables from this process will be a multivariate Gaussian distribution. \cite{Rasmussen-GPML-2006} 
+
+In more formal mathematical notation, for any collection of distinct indices $\{t_{1}, \dots, t_{N}\} \subset T$, the $N$-dimensional random vector $\begin{pmatrix}X_{t_{1}} & \cdots & X_{t_{N}}\end{pmatrix}^{\scriptstyle{\sfT}} \in \bbR^{N}$ follows a multivariate Gaussian distribution on $\bbR^{N}$. Note that by this definition, every individual random variable $X_{t}$ must follow a univariate Gaussian distribution. 
+
+Gaussian Processes are commonly used in regression settings as a `surrogate model' for modelling unknown functions, as the framework for a Gaussian Process allows for a lot of flexibility wen learning an unknown function.
+
+
+
+From a statistical perspective, a Gaussian Process defined on the indexing set $T$ is entirely specified by two functions; a \emph{mean function} $\mu: T \to \bbR$ which represents the expectation of the random variables, and a \emph{covariance kernel function} $k: T \times T \to \bbR$, which represents the covariance between the random variables \cite{Rasmussen-GPML-2006}. In most Gaussian Process regression settings, 
+
+
+
+\subsection{Gaussian Process Latent Variable Models}
+
+Now that we have covered the fundamentals of PPCA and Gaussian Processes, we may turn our attention towards the primary methodological focus of this report. 
+
+
+
+\section{Data Description}\label{sec:data}
+
+The primary image dataset which we use for our simulations involving this method is the \FMNIST dataset \cite{Fashion-MNIST}, which is a publicly-available benchmarking dataset used in a variety of machine learning tasks. The data is 
+
+The primary dataset of interest for our simulation study is the \FMNIST dataset \cite{Fashion-MNIST}, which is a popular dataset for machine learning benchmarking. The choice of this dataset is primarily motivated by the simulations in \cite{GPLVM-2005}, which uses the `original' MNIST dataset containing handwritten digits.
+
+The Fashion-MNIST dataset is built into many common machine learning software libraries by default, including \texttt{PyTorch} \cite{pytorch-library}.
+
+\begin{figure}[!h]
+\centering
+    \includegraphics[width=0.95\linewidth]{../Code/outputs/fashion-mnist-examples.pdf}
+    \caption{One example from each of the ten classes of clothing items in the \FMNIST dataset}
+    \label{fig:fashion-MNIST-examples}
+\end{figure}
+
+\begin{figure}[!h]
+\centering
+    \includegraphics[width=0.95\linewidth]{../Code/outputs/fashion-mnist-scree.pdf}
+    \caption{Scree plots for the principal components of the training data in the \FMNIST dataset}
+    \label{fig:fashion-MNIST-scree}
+\end{figure}
+
+\begin{figure}[!h]
+\centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-pca-2d.pdf}
+        \caption{Top two principal components of clothing items in the \FMNIST dataset}
+        \label{fig:fashion-pca-2d}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-pca-3d.pdf}
+        \caption{Top three principal components of clothing items in the \FMNIST dataset}
+        \label{fig:fashion-pca-3d}
+    \end{subfigure}
+    \caption{Top principal components of clothing items, coloured by clothing type.}
+    \label{fig:fashion-pca-plots}
+\end{figure}
+
+\section{Results}\label{sec:results}
+
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Limitations}
+
+\subsection{Future Work}
+
+\subsection{Conclusions}
+
+\clearpage
+
+% \nocite{GPLVM-2005}
+% \nocite{*}
+% \bibliographystyle{natbib}
+\bibliography{report-references}
+
+% \clearpage
+% \section*{Appendix}
+\end{document}

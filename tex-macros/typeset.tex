@@ -1,0 +1,33 @@
+% custom geometry
+\usepackage{geometry}
+\geometry{
+    letterpaper,
+    top=1.0in,
+    left=1.0in,
+    right=1.0in,
+    bottom=1.0in,
+}
+
+% customized titles for sections and subsections
+\usepackage{titlesec}
+\titleformat{\section}
+  {\normalfont\Large\bfseries}
+  {}                        
+  {0pt}                    
+  {}
+  
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}
+  {}                        
+  {0pt}                    
+  {}
+  
+\titleformat{\subsubsection}
+  {\normalfont\normalsize\bfseries}
+  {}                        
+  {0pt}                    
+  {}
+
+\usepackage[nodisplayskipstretch]{setspace}
+\setstretch{1.5}
+\pagenumbering{gobble}

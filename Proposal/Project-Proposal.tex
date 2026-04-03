@@ -1,0 +1,44 @@
+\documentclass[12pt]{article}
+\input{../tex-macros/typeset.tex}
+\input{../tex-macros/math-macros.tex}
+\input{../tex-macros/math-alphabets.tex}
+
+\usepackage{caption,subcaption}
+\usepackage{pifont}
+\usepackage[numbers, square]{natbib}
+\bibliographystyle{plainnat}
+
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{url}
+\usepackage[dvipsnames]{xcolor}
+
+\hypersetup{
+    colorlinks = true,
+    linkcolor = OliveGreen,
+    citecolor = Bittersweet,
+    urlcolor = NavyBlue
+}
+
+\begin{document}
+
+\subsection*{Introduction}
+The statistical method which I am interested in studying for my final project is Gaussian Process Latent Variable Modelling (GP-LVM), with a particular focus on the use of these methods for dimension reduction. 
+
+GP-LVM is related to the STA2201 course content as this is a frequently-used non-linear method to reduce the dimensionality of high-dimensional data. Additionally, the GP-LVM method extends the model formulation for probabilistic PCA (PPCA) to non-linear functions, which is highly relevant to the topics discussed in STA2201.
+
+\subsection*{Description of GP-LVM}
+Suppose that we observe $y_{1}, y_{2}, \dots, y_{n} \in \bbR^{D}$, and we believe that these data are governed by some latent variables $x_{1}, x_{2}, \dots, x_{n} \in \bbR^{Q}$, where $Q < D$ \cite{GPLVM-2005}. A common model is that $y_{i} = f(x_{i}) + \eta_{i}$, where $f: \bbR^{Q} \to \bbR^{D}$ is unknown, with added noise $\eta_{i}$. In such settings, we may perform dimensionality reduction with the ultimate goal of recovering $\{x_{i}\}_{i=1}^{n}$ given $\{y_{i}\}_{i=1}^{n}$ \cite{PPCA-1999,GPLVM-Viz-2004} using a method such as PPCA. However, PPCA assumes that $f(x_{i})$ is an affine linear function of $x_{i}$, which is quite inflexible.
+
+GP-LVM extends this methodology by using several independent Gaussian processes to represent the likelihood of the underlying mapping, which allows for a much richer class of function mappings \cite{Rasmussen-GPML-2006,Bayes-GPLVM-2010} than in PPCA. Similar to PPCA, the GP-LVM approach yields a mathematically tractable likelihood function which can be optimized with maximum likelihood \cite{GPLVM-2005} or variational inference methods \cite{Bayes-GPLVM-2010,Generalized-GPLVM-2022}.
+
+\subsection*{Simulation Study}
+To test the practical use of GP-LVM methods, I intend to use Python to compare the performance of PPCA and GP-LVM algorithms on dimensionality reduction tasks with commonly-used test datasets such as the \texttt{MNIST} and \texttt{Fashion-MNIST} datasets. 
+
+These choices of datasets are inspired by Neil D. Lawrence's paper \cite{GPLVM-2005} which uses the handwritten digit dataset to showcase the GP-LVM methodology. In the interest of reproducibility, all of my code will be contained in a publicly-available GitHub repository.
+
+\clearpage
+
+\nocite{*}
+\bibliography{proposal-references}
+\end{document}

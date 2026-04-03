@@ -1,0 +1,127 @@
+%%% packages and libraries %%%
+\usepackage{amsmath, amsthm, amssymb, amsfonts}
+\usepackage{mathtools}
+\usepackage{enumerate, enumitem}
+\usepackage{algorithm, algpseudocode}
+\usepackage{xparse}
+
+%%% custom stats commands %%%
+\newcommand{\simiid}{\overset{\scriptscriptstyle{\textrm{i.i.d.}}}{\sim}}
+\newcommand{\indep}{\mathrel{\perp\!\!\!\perp}}
+\newcommand{\estm}[2][]{\widehat{#2}_{#1}} % estimator
+\newcommand{\iter}[2]{{#1}^{(#2)}} % iteration of algorithm
+
+%%% custom math commands %%%
+\newcommand{\tpose}[1]{#1^{\scriptstyle{\mathsf{T}}}} % transpose
+\newcommand{\ctpose}[1]{#1^{\scriptstyle{\mathsf{H}}}} % conjugate transpose
+\newcommand{\floor}[1]{\lfloor{#1}\rfloor}
+\newcommand{\ceil}[1]{\lceil{#1}\rceil}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\sgn}{sgn}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\spn}{span}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\supp}{supp}
+
+% probability of event (optional subscript, blank by default)
+\NewDocumentCommand{\prob}{ s O{} m }{
+    \IfBooleanTF{#1}
+        {\bbP_{#2}(#3)}              % \prob*{} (no resizing)
+        {\bbP_{#2}\!\left(#3\right)} % \prob (auto-sizing)
+}
+
+% expectation (optional subscript, blank by default)
+\NewDocumentCommand{\expec}{ s O{} m }{
+    \IfBooleanTF{#1}
+        {\bbE_{#2}[#3]}              % \expec*{} (no resizing)
+        {\bbE_{#2}\!\left[#3\right]} % \expec (auto-sizing)
+}
+
+% variance (optional subscript, blank by default)
+\NewDocumentCommand{\var}{ s O{} m }{
+    \IfBooleanTF{#1}
+        {\operatorname{Var}_{#2}[#3]}              % \var*{} (no resizing)
+        {\operatorname{Var}_{#2}\!\left[#3\right]} % \var (auto-sizing)
+}
+
+% covariance (optional subscript, blank by default)
+\NewDocumentCommand{\covar}{ s O{} m m }{
+    \IfBooleanTF{#1}
+        {\operatorname{Cov}_{#2}(#3, #4)}              % \covar*{} (no resizing)
+        {\operatorname{Cov}_{#2}\!\left(#3, #4\right)} % \covar (auto-sizing)
+}
+
+% correlation (optional subscript, blank by default)
+\NewDocumentCommand{\corr}{ s O{} m m }{
+    \IfBooleanTF{#1}
+        {\operatorname{corr}_{#2}(#3, #4)}              % \corr*{} (no resizing)
+        {\operatorname{corr}_{#2}\!\left(#3, #4\right)} % \corr (auto-sizing)
+}
+
+% bias (optional subscript, blank by default)
+\NewDocumentCommand{\bias}{ s O{} m }{
+    \IfBooleanTF{#1}
+        {\operatorname{bias}_{#2}(#3)}              % \bias*{} (no resizing)
+        {\operatorname{bias}_{#2}\!\left(#3\right)} % \bias (auto-sizing)
+}
+
+% MSE (optional subscript, blank by default)
+\NewDocumentCommand{\MSE}{ s O{} m }{
+    \IfBooleanTF{#1}
+        {\operatorname{MSE}_{#2}(#3)}              % \MSE*{} (no resizing)
+        {\operatorname{MSE}_{#2}\!\left(#3\right)} % \MSE (auto-sizing)
+}
+
+% "full" derivative 
+\NewDocumentCommand{\dx}{ o }{
+    \mathrm{d}
+    \IfValueT{#1}{
+        \IfBlankF{#1}{#1}
+    }
+}
+
+% "full" derivative (fractional)
+\NewDocumentCommand{\ddx}{ O{} m m }{
+    \IfValueTF{#1}
+        {\frac{\dx^{#1}#2}{\dx{#3^{#1}}}}
+        {\frac{\dx{#2}}{\dx{#3}}}
+}
+
+% partial derivative
+\NewDocumentCommand{\px}{ o }{
+    \partial
+    \IfValueT{#1}{
+        \IfBlankF{#1}{#1}
+    }
+}
+
+% partial derivative (fractional)
+\NewDocumentCommand{\pdx}{ O{} m m }{
+    \IfValueTF{#1}
+        {\frac{\px^{#1}#2}{\px{#3^{#1}}}}
+        {\frac{\px{#2}}{\px{#3}}}
+}
+
+% inner product (optional base, blank by default)
+\NewDocumentCommand{\innerprod}{ s O{} m m }{
+    \IfBooleanTF{#1}
+        {\langle{#3},{#4}\rangle_{#2}}            % \innerprod*{} (no resizing)       
+        {\left\langle{#3},{#4}\right\rangle_{#2}} % \innerprod{}  (auto-sizing)
+}
+
+% norm (optional base, blank by default)
+\NewDocumentCommand{\norm}{ s O{} m }{
+    \IfBooleanTF{#1}
+        {\lVert{#3}\rVert_{#2}}            % \norm*{} (no resizing)
+        {\left\lVert{#3}\right\rVert_{#2}} % \norm{}  (auto-sizing)
+}
+
+% absolute value
+\NewDocumentCommand{\abs}{ s m }{
+    \IfBooleanTF{#1}
+        {\lvert{#2}\rvert}            % \abs*{} (no resizing)
+        {\left\lvert{#2}\right\rvert} % \abs{}  (auto-sizing)
+}
