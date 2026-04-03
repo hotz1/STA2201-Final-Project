@@ -220,7 +220,7 @@ plt.show()
 
 
 # Create interactive PCA plot for 3 dimensions
-get_ipython().run_line_magic('matplotlib', 'widget')
+# get_ipython().run_line_magic('matplotlib', 'widget')
 fig = plt.figure(figsize = (10, 8))
 ax = fig.add_subplot(111, projection = "3d")
 
