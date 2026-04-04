@@ -150,7 +150,7 @@ Now that we have discussed the key ideas behind Gaussian Process regression, we 
 
 In the `typical' Gaussian process regression methodology, we learn the function $\mu(t) = \expec{X_{t}}$ based on a set of \emph{known} function inputs $\bfx_{i}$ and noisily-observed function outputs $\bfy_{i}$. In such settings, we can think of the outputs $\bfy_{i}$ as $\mu(\bfx_{i}) + \bepsilon_{i}$, representing the true mean with some added noise. However, for the GP-LVM method, we instead treat the observed vectors $\bfy \in \bbR^{D}$ as the outputs of Gaussian processes, and the inputs to these functions are unknown. In a more mathematical form, we have that
 \begin{equation}
-    \bfy &= g(\bfx) + \bepsilon \label{eq:GPLVM-model-simple}
+    \bfy = g(\bfx) + \bepsilon \label{eq:GPLVM-model-simple}
 \end{equation} 
 In \Cref{eq:GPLVM-model-simple}, there is an unknown function $g: \bbR^{Q} \to \bbR^{D}$ which must be learned, in addition to learning the true latent variables $\bfx$ which correspond to these outputs. This is a reversal of the standard function regression setting, as instead of learning a `forward' mapping $\bfX \longrightarrow \bfY$, we regress on a `backwards' mapping $\bfX \longleftarrow \bfY$. \citep{GPLVM-Viz-2004,Bayes-GPLVM-2010}
 
@@ -173,11 +173,140 @@ The choice to use the \FMNIST{} dataset is primarily motivated by the simulation
 
 In addition to the relevance to other papers on the topic of dimensionality reduction, the \FMNIST{} dataset is also conveniently made available in many software packages and libraries such as \texttt{PyTorch} \citep{pytorch-library}, which makes this benchmark very easy to work with when testing the applicability of different methods.
 
+\section{Results}
+
+Here, we will discuss the code which we implemented in order to achieve the dimension-reduction goals described in \Cref{sec:intro}. All of the code for this project was run using \texttt{Python}, with heavy usage of the \texttt{numpy}, \texttt{PyTorch}, and \texttt{scikit-learn} libraries \citep{numpy-library,pytorch-library,scikit-learn-library} for a host of computationally-intensive tasks. The analysis code is split into four main components; Preliminary Analysis, PCA, PPCA, and GP-LVM.
+
+\subsection{Preliminary Analyses}
+
+Prior to fitting any models, we first loaded the \FMNIST{} dataset into Python and did some brief exploration of the dataset, including looking into examples of each of the classes of fashion items in the dataset, as shown in \Cref{fig:fashion-MNIST-examples}.
+
+However, the primary purpose of this stage of the analysis was to determine the value of $Q$ which we would use for dimension reduction. Many papers, such as \citep{GPLVM-Viz-2004}, suggest choosing $Q = 2$ or $Q = 3$ for visualization purposes, but we instead decided to use more formal metrics. 
+
+\begin{figure}[!h]
+\centering
+    \includegraphics[width=0.95\linewidth]{../Code/outputs/fashion-mnist-scree.pdf}
+    \caption{Scree plots for the principal components of the training data in the \FMNIST{} dataset}
+    \label{fig:fashion-MNIST-scree}
+\end{figure}
+
+Using the designated \FMNIST{} training dataset $\bfY^{\text{train}} \in \bbR^{60000 \times 784}$, we calculated the variance explained and the proportion of variance explained by each principal component of the data, hoping that this would lead towards an obvious choice for $Q$. However, as we see in both plots in \Cref{fig:fashion-MNIST-scree}, there does not appear to be an obvious `elbow' where we can cleanly cut off the number of components. Additionally, we found that 49 components are required to explain 80\% of the variance in the data, with 136 components needed to surpass the 90\% threshold.
+
+In the interest of both time and the safety of my personal computer, we chose to fix $Q = 10$ to be the number of components in the lower-dimensional representations of $\bfY^{\text{train}}$. Additionally, due to memory constraints on my computer, we reduced the size of the dataset $Y^{\text{train}}$ to 10,000 observations only. This reduction was done in a stratified manner, so that each class of fashion items comprises exactly 10\% of the reduced-size dataset, just as it does in the original train and test datasets provided by default when using \FMNIST.
+
+\subsection{Principal Component Analysis}
+
+Although the `standard' PCA algorithm is not one of the primary motivations of this report, we chose to use PCA with $Q = 10$ components to perform dimensionality reduction on the sub-sampled dataset. 
+
+\begin{figure}[!h]
+\centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-pca-2d.pdf}
+        \caption{Top two principal components of clothing items in the \FMNIST{} dataset}
+        \label{fig:fashion-pca-2d}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-pca-3d.pdf}
+        \caption{Top three principal components of clothing items in the \FMNIST{} dataset}
+        \label{fig:fashion-pca-3d}
+    \end{subfigure}
+    \caption{Top principal components of clothing items, coloured by clothing type.}
+    \label{fig:fashion-pca-plots}
+\end{figure}
+
+\Cref{fig:fashion-pca-plots} depicts the top two and top three principal components for the \FMNIST{} dataset, with points coloured based on their corresponding group. With only two components (\Cref{fig:fashion-pca-2d}), we see a lot of interspersed data without separation of groups, but with three components (\Cref{fig:fashion-pca-3d}), some of the groups which were closely connected seem to spread further from one another. However, it is clear that there are still several fashion items which are not suitably different from one another based on only the first three components, such as trousers and dresses. 
+
+After performing the PCA to reduce the dimensionality to 10, we use $K$-means clustering with 10 clusters to split the lower-dimensional representations of the image data into 10 groups. We then compared these groupings to the true labels of the images using the adjusted Rand index (ARI), which is a metric for comparing groupings in a label-agnostic fashion. The resulting ARI metric was 35.06\%, which indicates a subpar performance, but it is better than purely random chance.
+
+\subsection{PPCA}
+
+Similar to the PCA methodology discussed above, we performed the same set of analytical steps using the exact formulation for PPCA. 
+
+\begin{figure}[!h]
+\centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-ppca-2d.pdf}
+        \caption{Top two latent variables from PPCA for the \FMNIST{} data}
+        \label{fig:fashion-ppca-2d}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-ppca-3d.pdf}
+        \caption{Top three latent variables from PPCA for the \FMNIST{} data}
+        \label{fig:fashion-ppca-3d}
+    \end{subfigure}
+    \caption{Top PPCA latent variables for representing images of clothing items, coloured by clothing type.}
+    \label{fig:fashion-ppca-plots}
+\end{figure}
+
+\Cref{fig:fashion-ppca-plots} depicts the top two latent variables for the data using PPCA. Similar to the non-probabilistic PCA we again see that there are several groups which are still stuck together, and there is generally not a lot of separation with only two or three dimensions of latent variables. 
+
+Using $K$-means clustering, we again computed the ARI metric as done for the PCA groupings, and we had a result of 34.63\%, which is ever so-slightly worse than the PCA. Additionally, we reconstructed the data from the latent variables, and had a fairly low RMSE, which is quite promising.
+
+\subsection{GP-LVM}
+
+\begin{figure}[!h]
+\centering
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-gp-lvm-2d.pdf}
+        \caption{Top two latent variables from GP-LVM for the \FMNIST{} data}
+        \label{fig:fashion-gp-lvm-2d}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{../Code/outputs/fashion-gp-lvm-3d.pdf}
+        \caption{Top three latent variables from GP-LVM for the \FMNIST{} data}
+        \label{fig:fashion-gp-lvm-3d}
+    \end{subfigure}
+    \caption{Highest-importance GP-LVM latent variables for representing images of clothing items, coloured by clothing type.}
+    \label{fig:fashion-gp-lvm-plots}
+\end{figure}
+
+\Cref{fig:fashion-ppca-plots} depicts the top two latent variables for the data using PPCA. Similar to the non-probabilistic PCA we again see that there are several groups which are still stuck together, and there is generally not a lot of separation with only two or three dimensions of latent variables. 
+
+Using $K$-means clustering on the resulting latent variable dataset, we computed the ARI metric and had an adjusted Rand index of 38.06\%. This is a fair amount higher than the PCA or PPCA results, but this is still not a particularly high number, indicating that there is quite a bit of information for classification that oes not seem to be carried over into the lower-dimensional manifold. 
+
+In addition, we reconstructed the dataset based on the latent variable model. However, the RMSE was exactly equal to zero, indicating that the Gaussian Processes are heavily overfitted to the training data, which may be problematic. Unfortunately, running this method for out-of-sample data (such as from $\bfY^{\text{test}}$) is quite computationally intensive, so we did not have time to implement this. 
+
+
+\subsection{Final Comparison}
+
+\begin{table}[]
+    \centering
+    \begin{tabular}{@{}lrr@{}}
+        \toprule
+        Method & Adjusted Rand Index & Reconstruction RMSE \\ \midrule
+        PCA    & 35.06\%             & N/A                 \\
+        PPCA   & 34.63\%             & 0.6114              \\ 
+        GPLVM  & 38.06\%             & 0.0000              \\ \bottomrule
+    \end{tabular}
+    \caption{Dimensionality Reduction Results with $Q = 10$.}
+    \label{tab:dim-reduce-results}
+\end{table}
+
+Overall, the GP-LVM was the best in terms of the adjusted Rand index, but none of these methods were particularly incredible when it comes to replicating the true labellings. All three methods performed relatively similarly, which is somewhat disappointing, as the GP-LVM took several hours to run while the PCA was completed in under one minute, and the improvement in performance is not particularly grand. 
+
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Limitations}
+
+One of the primary limitations of this research project is that determining the latent variable matrix $\bfX^{\text{GPLVM}} \in \bbR^{N \times Q}$ using the GP-LVM framework is very computationally expensive.
+
+\subsection{Future Work}
+
+Similar to the main limitation described above, the most important future work would be to potentially re-run this set of simulations with a larger value of $Q$, so that we could better grasp how well increasing the dimension of the latent variable space will affect the overall results, as these three methods may not all be affected in the same manner. 
+
+Additionally, it would be helpful to have the ability to more feasibly perform out-of-sample predictions using the trained models (particularly the GP-LVM), as there appeared to be some severe overfitting in one case, but without out-of-sample data, it is difficult to determine the extent to which this overfitting skewed the results.
 
 \clearpage
 
 \bibliography{report-references}
 
-% \clearpage
-% \section*{Appendix}
 \end{document}
