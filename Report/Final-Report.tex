@@ -5,17 +5,19 @@
 
 \usepackage{caption,subcaption}
 \usepackage{pifont}
-\usepackage[numbers, square]{natbib}
-\bibliographystyle{plainnat}
+\usepackage[authoryear]{natbib}
+\bibliographystyle{apalike}
 
 \usepackage{hyperref}
 \usepackage{cleveref}
 \usepackage{url}
 \usepackage[dvipsnames]{xcolor}
+\usepackage{booktabs}
+\usepackage{nicefrac}
 
 \hypersetup{
     colorlinks = true,
-    citecolor = ProcessBlue
+    citecolor = BlueViolet
     % linkcolor = RedOrange,
     % citecolor = BlueViolet,
     % urlcolor = ProcessBlue
@@ -30,14 +32,20 @@
 \numberwithin{figure}{section}
 \numberwithin{table}{section}
 
-\newcommand{\FMNIST}{\texttt{Fashion-MNIST}\;}
+\newcommand{\FMNIST}{\texttt{Fashion-MNIST}}
 \newcommand{\GP}{\mathcal{GP}}
+\newcommand{\MLE}{\text{MLE}}
+\newcommand{\PCA}{\text{PCA}}
+\newcommand{\PPCA}{\text{PPCA}}
+\newcommand{\GPLVM}{\text{GPLVM}}
+
+\creflabelformat{equation}{#2#1#3}
 
 
 \begin{document}
 
 \begin{center}
-    {\LARGE{\textbf{Gaussian Process Latent Variable Models for Simplifying Image Data}}}
+    {\LARGE{\textbf{Dimension Reduction with Latent Variable Models for Simplification of Image Data}}}
     \vspace*{2cm}
 
     {\Large{Joey Hotz}}\\
@@ -60,96 +68,114 @@
 
 \section{Introduction}\label{sec:intro}
 
-The overarching goal of this project is to investigate the properties of Gaussian Process Latent Variable Models (GP-LVMs), with a focus on the application of these models to dimension reduction in a high-dimensional data setting.
+The overarching goal of this project is to investigate the properties of Probabilistic Principal Component Analysis (PPCA) and Gaussian Process Latent Variable Models (GP-LVM), with a focus on the application of these methods in dimension reduction on an image dataset 
 
-My personal motivation for choosing this topic for my report is that the GP-LVM method is an 
+In this report, we discuss some of the statistical background which underpins each of these methods and we describe some of the major formulas required for using these methods in a practical setting. Following this, we examine the performance of each of these methods on the \FMNIST{} dataset \citep{Fashion-MNIST} to better understand the differences and similarities between these latent variable methods. 
 
-% My motivation for choosing this topic is 
+The primary research question which motivates this research project is to find models which are suitable for reducing the dimensionality of image data. Using the \FMNIST{} dataset as our source of image data with corresponding classification labels, we measure the performance of these methods using two metrics:
+\begin{itemize}[label=\ding{72}]
+    \item The average reconstruction error for reconstructing the original images from the fitted latent variables.
+    \item The agreement between clusters formed in the lower-dimensional space with the true labels for the respective images.
+\end{itemize}
+In addition to these two quantifiable metrics, we also use dimension reduction methods to create 2-D and 3-D plots of the dataset, which provides valuable qualitative information about a hard-to-visualize data distribution.  
+
+My personal motivation for choosing this topic was to gain a better understanding of some dimension reduction methods which we did not discuss in much detail during the past semester. I am particularly interested in the aspects of this research project which relate to the GP-LVM methodology, as we did not cover these methods of performing non-linear dimension reduction during STA2201, and this project allowed me to research these particular methods in much greater detail.
 
 \section{Methodology}\label{sec:methods}
 
-In order to develop a full mathematical understanding of the GP-LVM methodology and how this method can be used for dimensionality reduction, we must first discuss two pre-requisite ideas which are crucial in motivating the GP-LVM. 
+In order to discuss the specific differences between the `deterministic' PCA, probabilistic PCA, and Gaussian Process Latent Variable Models, we must first describe each of these methods from a statistical perspective. These methods build upon one another, with probabilistic PCA being an extension of PCA, with GP-LVM further extending this probabilistic formulation into a non-linear setting. 
 
-% In order to mathematically describe the GP-LVM methodology and how it relates to dimensionality reduction, we must first discuss the mathematics behind Gaussian Processes, as these are the key statistical objects used in creating these models.
+We first briefly describe the standard Principal Component Analysis algorithm, and we then extend this discussion to the other two methodologies which are the primary focus of this report. The dimensionality reduction setting which we use each of these three methods for can be described by the following. Suppose that we have a data matrix $\bfY \in \bbR^{N \times D}$, where each row of $\bfY$ is a vector $\bfy_{i}^{\T} \in \bbR^{D}$. To avoid some of the common pitfalls which may arise when working with high-dimensional data, we may be inclined to try and reduce the dimensionality of this data to make the observations more manageable. Conceptually, we can think of dimension reduction methods as invoking a mapping of the form $\phi: \bbR^{D} \to \bbR^{Q}$ where $Q < D$ (and possibly $Q \ll D$) so that we can instead focus on the transformed observations $\phi(\bfy_{i}) \in \bbR^{Q}$, which are less prone to the issues that plague high-dimensional statistics.
+
+% There are many pitfalls which arise when working with high-dimensional data, and the potential for these issues to arise in statistical analyses often motivate statisticians to perform dimension reduction methods. 
+
+\subsection{Principal Component Analysis (PCA)}
+
+Principal Component Analysis (PCA) is one of the most commonly-applied methods for dimensionality reduction \citep{PPCA-1999}. In order to effectively apply PCA for the purpose of dimension reduction, we must assume that the observations $\bfy_{1}, \dots, \bfy_{N}$ can be represented to a sufficient degree by some lower-dimensional hyperplane. 
+
+Fundamentally, PCA relies on projecting each observation $\bfy_{i} \in \bbR^{D}$ to some $r$-dimensional hyperplane embedded within $\bbR^{D}$ such that a majority of the information in the design matrix $\bfY$ is retained after applying this lower-dimensional projection operation. From a conceptual perspective, maximizing the retained information can be thought of in terms of minimizing the amount of information lost by the projection of every observation onto a lower-dimensional subspace, which consequently minimizes the reconstruction error when comparing the original vectors $\bfy_{i}$ to their projected complements which live on the lower-dimensional hyperplane. 
 
 \subsection{Probabilistic PCA}
 
-\subsection{Gaussian Processes}
+Probabilistic Principal Component Analysis (PPCA) is an extension of the `deterministic' PCA framework which formulates the dimension reduction into a lower-dimensional subspace by relating this dimension reduction to unobserved latent variables in a statistical model. \citep{PPCA-1999,GPLVM-Viz-2004}
 
-A Gaussian Process $\{X_{t}\}_{t \in T}$ is a stochastic process of random variables $\{X_{t}\}$ for $t$ in some pre-determined indexing set $T$ which has the property that the joint distribution of any any \emph{finite} collection of random variables from this process will be a multivariate Gaussian distribution. \cite{Rasmussen-GPML-2006} 
+The statistical framework for PPCA assumes that each vector of observations $\bfy_{i} \in \bbR^{D}$ can be represented by some affine linear equation of the form 
+\begin{equation}
+    \label{eq:PPCA-framework}
+    \bfy_{i} = \bfW\bfu_{i} + \bmu + \bepsilon_{i}
+\end{equation} 
+Here, $\bfu_{i} \in \bbR^{Q}$ is a latent $Q$-dimensional vector which corresponds to $\bfy_{i}$ and $\bepsilon_{i} \sim \calN_{D}(\zeros, \bm{\Psi})$ is an error term which follows a multivariate Gaussian distribution. The parameters\\ $\bfW \in \bbR^{D \times Q}$ and $\bmu \in \bbR^{D}$ in \Cref{eq:PPCA-framework} are deterministic parameters which describe the affine linear transformation relating a latent unobserved vector $\bfu \in \bbR^{Q}$ to the corresponding observation vector $\bfy \in \bbR^{D}$. 
 
-In more formal mathematical notation, for any collection of distinct indices $\{t_{1}, \dots, t_{N}\} \subset T$, the $N$-dimensional random vector $\begin{pmatrix}X_{t_{1}} & \cdots & X_{t_{N}}\end{pmatrix}^{\scriptstyle{\sfT}} \in \bbR^{N}$ follows a multivariate Gaussian distribution on $\bbR^{N}$. Note that by this definition, every individual random variable $X_{t}$ must follow a univariate Gaussian distribution. 
+% Ideally, under the assumption that the statistical formulation in \Cref{eq:PPCA-framework} is valid, we would hope to perfectly recover the $Q$-dimensional hyperplane containing the vectors $\{\bfu_{i}\}_{i=1}^{N}$ when using PCA for dimensionality reduction. This demonstrates a clear link between the deterministic PCA method described previously with this probabilistic PCA formulation. 
 
-Gaussian Processes are commonly used in regression settings as a `surrogate model' for modelling unknown functions, as the framework for a Gaussian Process allows for a lot of flexibility wen learning an unknown function.
+To motivate the probabilistic PCA method, we make two simplifying assumptions regarding the distributions of the underlying variables:
+\begin{itemize}[label=\ding{72}]
+    \item The latent vector $\bfu \in \bbR^{Q}$ is a random variable with distribution $\bfu \sim \calN_{Q}(\zeros, \bfI_{Q})$.
+    \item $\operatorname{Cov}(\bepsilon) = \bm{\Psi} = \sigma^{2}\bfI_{D}$ for some $\sigma^{2} > 0$. 
+\end{itemize}
+Under the two assumptions above, we have the following distributional results:
+\begin{align}
+    \bfy \vert \bfu &\sim \calN_{D}\!\left(\bfW\bfu + \bmu, \sigma^{2}\bfI_{D}\right) \label{eq:PPCA-conditional}
+    \intertext{Integrating \Cref{eq:PPCA-conditional} with respect to the distribution of $\bfu$ yields}
+    \bfy &\sim \calN_{D}\!\left(\bmu, \bfW\bfW^{\T} + \sigma^{2}\bfI_{D}\right) \label{eq:PPCA-unconditional}
+\end{align}
+Under the PPCA model with the assumptions above, we can derive a maximum likelihood estimator for the `shifting' vector $\bmu \in \bbR^{D}$, given by ${\bmu}_{\MLE} = \frac{1}{N}\sum_{i=1}^{N}\bfy_{i}$, and we can similarly derive an estimator $\bfS_{\MLE} = \frac{1}{N}\sum_{i=1}^{N}(\bfy_{i} - {\bmu}_{\MLE})(\bfy_{i} - {\bmu}_{\MLE})^{\T}$ as an estimator of the covariance matrix.
 
+However, under this particular set of assumptions, we can also derive \emph{exact} closed-form equations for the maximum likelihood estimators of $\bfW$ and $\sigma^{2}$, which typically can only be found using iterative methods such as the Expectation-Maximization algorithm. \citep{PPCA-1999,GPLVM-2005} Under these conditions, the PPCA formulation provides the following maximum likelihood estimators:
+\begin{align}
+    {\bfW}_{\MLE} &= \bfU_{Q}\left(\bm{\Lambda}_{Q} - \sigma^{2}\bfI_{Q}\right)^{\nicefrac{1}{2}}\bfR \label{eq:PPCA-W-MLE}\\
+    {\sigma}^{2}_{\MLE} &= \frac{1}{D - Q}\sum_{j = Q+1}^{D}\lambda_{j} \label{eq:PPCA-sigma-MLE}
+\end{align}
+In \Cref{eq:PPCA-W-MLE}, the matrices $\bfU_{Q} \in \bbR^{D \times Q}$ and $\bm{\Lambda}_{Q} \in \bbR^{Q \times Q}$ are comprised of the top $Q$ eigenvectors and eigenvalues of the covariance matrix $\bfS_{\MLE}$. The matrix $\bfR \in \bbR^{Q \times Q}$ is an arbitrary orthogonal rotation matrix, as the likelihood function for PPCA is constant with respect to orthogonal rotations of the latent space. This formula for $\bfW_{\MLE}$ aligns nicely with the non-probabilistic formulation of PCA, in which the $Q$ principal components are derived from the top $Q$ eigenvectors of the sample covariance matrix.
 
+\citet{PPCA-1999} provides a helpful way to interpret \Cref{eq:PPCA-sigma-MLE}, by considering the summation over the remaining $(D-Q)$ eigenvalues of $\bfS_{\MLE}$ to be the variance in the data which is `lost' (i.e. not explained) after projection onto the lower-dimensional subspace. 
 
-From a statistical perspective, a Gaussian Process defined on the indexing set $T$ is entirely specified by two functions; a \emph{mean function} $\mu: T \to \bbR$ which represents the expectation of the random variables, and a \emph{covariance kernel function} $k: T \times T \to \bbR$, which represents the covariance between the random variables \cite{Rasmussen-GPML-2006}. In most Gaussian Process regression settings, 
+\subsection{Gaussian Processes} 
 
+Before discussing the GP-LVM methodology in full, we first describe the statistical formulation of Gaussian Processes, as Gaussian Processes and Gaussian Process regression are essential aspects of the GP-LVM framework.
 
+A Gaussian Process $\{X_{t}\}_{t \in T}$ is a stochastic process of random variables $\{X_{t}\}$ for $t$ in some pre-determined indexing set $T$ which has the property that the joint distribution of any any \emph{finite} collection of random variables from this process will be a multivariate Gaussian distribution \citep{Rasmussen-GPML-2006,GPLVM-2005}. Rewriting the above in more formal notation, for any set of indices $\{t_{1}, \dots, t_{n}\} \subset T$, the $n$-dimensional random vector $\begin{pmatrix}X_{t_{1}} & \cdots & X_{t_{n}}\end{pmatrix}^{\T} \in \bbR^{n}$ has a multivariate Gaussian distribution. Note that as a clear corollary of this definition, any individual random variable $X_{t}$ must follow a univariate Gaussian distribution. 
+
+From a statistical perspective, a Gaussian Process defined on the indexing set $T$ is entirely specified by two functions; a \emph{mean function} $\mu: T \to \bbR$ which represents the expectation of the random variables and a \emph{covariance kernel function} $k: T \times T \to \bbR$, which represents the covariance between the random variables. In particular, we have that $\mu(t) = \expec{X_{t}}$ and $k(t, t') = \covar{X_{t}}{X_{t'}}$.
+
+Gaussian Processes are commonly used in regression as a `surrogate model' for modelling unknown functions, as these models are very flexible and capable of representing many different classes of real-valued functions. In addition, Gaussian processes are very amenable to being formulated as an unknown real-valued function on a specified domain, and certain constraints such as continuity and differentiability can be imposed through specific choices of the kernel function $k(\cdot, \cdot)$ \citep{Bayes-GPLVM-2010}. 
+
+In such regression contexts, we are given a set of inputs $\bfX_{\text{obs}} = \{\bfx_{i}\}_{i=1}^{N} \in \bbR^{N \times D}$ and $\bfY_{\text{obs}} = \{y_{i}\}_{i=1}^{N} \in \bbR^{N}$, where it is assumed that $y_{i} = f(\bfx_{i}) + \epsilon_{i}$ for some unknown function $f: \bbR^{D} \to \bbR$, with $\epsilon_{i}$ representing some additional observation noise that comes from a Gaussian distribution. The goal of these Gaussian process regression methods is to learn the function $\mu(t) = \expec{X_{t}}$ based on the given data. 
+
+In practice, the covariance kernel $k$ is typically not \emph{fully} specified a priori. Instead, in many Gaussian Process regression settings, the covariance kernel function $k$ is selected to be a member of some parametric family of kernel functions. During each iteration of the model-fitting process, the hyperparameters for the specific kernel function $k$ are updated via empirical Bayes updates to maximize the joint likelihood over the hyperparameters of the Gaussian process surrogate model and the data \citep{Rasmussen-GPML-2006}.
 
 \subsection{Gaussian Process Latent Variable Models}
 
-Now that we have covered the fundamentals of PPCA and Gaussian Processes, we may turn our attention towards the primary methodological focus of this report. 
+Now that we have discussed the key ideas behind Gaussian Process regression, we can focus on the GP-LVM framework. Similar to both versions of PCA discussed previously, this method is primarily used for reducing the dimensionality of observed data. However, unlike the two formulations of PCA, this method does not assume that the relationship between the observations $\{\bfy_{i}\}_{i=1}^{N}$ and the latent variables $\{\phi(\bfy_{i})\}_{i=1}^{N}$ is necessarily linear. This relaxation of the assumptions is what motivates the use of Gaussian processes to assist in learning the underlying functional forms.
 
+In the `typical' Gaussian process regression methodology, we learn the function $\mu(t) = \expec{X_{t}}$ based on a set of \emph{known} function inputs $\bfx_{i}$ and noisily-observed function outputs $\bfy_{i}$. In such settings, we can think of the outputs $\bfy_{i}$ as $\mu(\bfx_{i}) + \bepsilon_{i}$, representing the true mean with some added noise. However, for the GP-LVM method, we instead treat the observed vectors $\bfy \in \bbR^{D}$ as the outputs of Gaussian processes, and the inputs to these functions are unknown. In a more mathematical form, we have that
+\begin{equation}
+    \bfy &= g(\bfx) + \bepsilon \label{eq:GPLVM-model-simple}
+\end{equation} 
+In \Cref{eq:GPLVM-model-simple}, there is an unknown function $g: \bbR^{Q} \to \bbR^{D}$ which must be learned, in addition to learning the true latent variables $\bfx$ which correspond to these outputs. This is a reversal of the standard function regression setting, as instead of learning a `forward' mapping $\bfX \longrightarrow \bfY$, we regress on a `backwards' mapping $\bfX \longleftarrow \bfY$. \citep{GPLVM-Viz-2004,Bayes-GPLVM-2010}
 
+As a simplification, the functional form of $g(\cdot)$ in \Cref{eq:GPLVM-model-simple} is typically assumed to be comprised of $D$ independent functions $g_{d}: \bbR^{Q} \to \bbR$ for $d \in \{1,2,\dots, D\}$ \citep{Review_GPLVM_2016} with independent errors $\epsilon_{d}$, but this optimization still remains quite arduous. 
 
 \section{Data Description}\label{sec:data}
 
-The primary image dataset which we use for our simulations involving this method is the \FMNIST dataset \cite{Fashion-MNIST}, which is a publicly-available benchmarking dataset used in a variety of machine learning tasks. The data is 
-
-The primary dataset of interest for our simulation study is the \FMNIST dataset \cite{Fashion-MNIST}, which is a popular dataset for machine learning benchmarking. The choice of this dataset is primarily motivated by the simulations in \cite{GPLVM-2005}, which uses the `original' MNIST dataset containing handwritten digits.
-
-The Fashion-MNIST dataset is built into many common machine learning software libraries by default, including \texttt{PyTorch} \cite{pytorch-library}.
+The image dataset which we use for the coding and simulation aspects of this report is the \FMNIST{} dataset \citep{Fashion-MNIST}, compiled by the software engineering and research team at Zalando. \FMNIST{} is a publicly-available dataset which is commonly used as a benchmark for evaluating the performance of variety of machine learning and statistical tasks. Each of the images in this dataset is a square, $28 \times 28$ pixel grayscale image of some clothing item or fashion accessory.
 
 \begin{figure}[!h]
 \centering
     \includegraphics[width=0.95\linewidth]{../Code/outputs/fashion-mnist-examples.pdf}
-    \caption{One example from each of the ten classes of clothing items in the \FMNIST dataset}
+    \caption{Example images from each item category in the \FMNIST{} dataset.}
     \label{fig:fashion-MNIST-examples}
 \end{figure}
 
-\begin{figure}[!h]
-\centering
-    \includegraphics[width=0.95\linewidth]{../Code/outputs/fashion-mnist-scree.pdf}
-    \caption{Scree plots for the principal components of the training data in the \FMNIST dataset}
-    \label{fig:fashion-MNIST-scree}
-\end{figure}
+In addition to containing a large collection of images, each of the observations in the dataset is classified into one of ten distinct groups. \Cref{fig:fashion-MNIST-examples} depicts one example from each of these ten item categories. The complete \FMNIST{} dataset contains 70,000 labelled images, with a pre-determined training set of 60,000 images and a test set containing the remaining 10,000 fashion items. The categories are perfectly stratified in both the training and test datasets, with each category comprising of precisely 10\% of the total observations in both datasets. 
 
-\begin{figure}[!h]
-\centering
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{../Code/outputs/fashion-pca-2d.pdf}
-        \caption{Top two principal components of clothing items in the \FMNIST dataset}
-        \label{fig:fashion-pca-2d}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}{0.48\textwidth}
-        \centering
-        \includegraphics[width=\linewidth]{../Code/outputs/fashion-pca-3d.pdf}
-        \caption{Top three principal components of clothing items in the \FMNIST dataset}
-        \label{fig:fashion-pca-3d}
-    \end{subfigure}
-    \caption{Top principal components of clothing items, coloured by clothing type.}
-    \label{fig:fashion-pca-plots}
-\end{figure}
+The choice to use the \FMNIST{} dataset is primarily motivated by the simulations in \citet{GPLVM-2005}. The article by Neil Lawrence -- which is one of the foremost papers regarding Gaussian Process Latent Variable Models -- uses the `original' \texttt{MNIST} dataset containing 70,000 categorized images of handwritten digits as an example to demonstrate the potential applications of this methodology.
 
-\section{Results}\label{sec:results}
+In addition to the relevance to other papers on the topic of dimensionality reduction, the \FMNIST{} dataset is also conveniently made available in many software packages and libraries such as \texttt{PyTorch} \citep{pytorch-library}, which makes this benchmark very easy to work with when testing the applicability of different methods.
 
-\section{Discussion}\label{sec:discussion}
-
-\subsection{Limitations}
-
-\subsection{Future Work}
-
-\subsection{Conclusions}
 
 \clearpage
 
-% \nocite{GPLVM-2005}
-% \nocite{*}
-% \bibliographystyle{natbib}
 \bibliography{report-references}
 
 % \clearpage

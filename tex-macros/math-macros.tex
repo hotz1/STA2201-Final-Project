@@ -12,8 +12,8 @@
 \newcommand{\iter}[2]{{#1}^{(#2)}} % iteration of algorithm
 
 %%% custom math commands %%%
-\newcommand{\tpose}[1]{#1^{\scriptstyle{\mathsf{T}}}} % transpose
-\newcommand{\ctpose}[1]{#1^{\scriptstyle{\mathsf{H}}}} % conjugate transpose
+% \newcommand{\tpose}[1]{#1^{\scriptstyle{\mathsf{T}}}} % transpose
+% \newcommand{\ctpose}[1]{#1^{\scriptstyle{\mathsf{H}}}} % conjugate transpose
 \newcommand{\floor}[1]{\lfloor{#1}\rfloor}
 \newcommand{\ceil}[1]{\lceil{#1}\rceil}
 
@@ -43,8 +43,8 @@
 % variance (optional subscript, blank by default)
 \NewDocumentCommand{\var}{ s O{} m }{
     \IfBooleanTF{#1}
-        {\operatorname{Var}_{#2}[#3]}              % \var*{} (no resizing)
-        {\operatorname{Var}_{#2}\!\left[#3\right]} % \var (auto-sizing)
+        {\operatorname{Var}_{#2}(#3)}              % \var*{} (no resizing)
+        {\operatorname{Var}_{#2}\!\left(#3\right)} % \var (auto-sizing)
 }
 
 % covariance (optional subscript, blank by default)
